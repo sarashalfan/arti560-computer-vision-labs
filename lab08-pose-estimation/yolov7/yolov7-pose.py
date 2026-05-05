@@ -8,12 +8,10 @@ from utils.datasets import letterbox
 from utils.general  import non_max_suppression_kpt
 from utils.plots    import output_to_keypoint, plot_skeleton_kpts
 
-
 def pose_video(frame):
     mapped_img = frame.copy()
     # Letterbox resizing.
     img = letterbox(frame, input_size, stride=64, auto=True)[0]
-    print(img.shape)
     img_ = img.copy()
     # Convert the array to 4D.
     img = transforms.ToTensor()(img)
@@ -31,7 +29,7 @@ def pose_video(frame):
         output = non_max_suppression_kpt(output, 
                                          0.25,    # Conf. Threshold.
                                          0.65,    # IoU Threshold.
-                                         nc=1,   # Number of classes.
+                                         nc=1,    # Number of classes.
                                          nkpt=17, # Number of keypoints.
                                          kpt_label=True)
         
@@ -46,7 +44,6 @@ def pose_video(frame):
         plot_skeleton_kpts(nimg, output[idx, 7:].T, 3)
         
     return nimg, fps
-
 
 #------------------------------------------------------------------------------#
 # Change forward pass input size.
@@ -69,35 +66,32 @@ _ = model.float().eval()
 # Load the model to computation device [cpu/gpu/tpu]
 model.to(device)
 
-# Provide the list of paths to your chosen videos her
-videos = [
-        'skydiving',
-        'far-away']
-
-file_name = videos[0] + '.mp4'
-vid_path = '../media/' + file_name
+# Provide the correct path to your chosen video
+vid_path = '../media/yoga.mp4'
 
 cap = cv2.VideoCapture(vid_path)
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 ret, frame = cap.read()
-h, w, _ = frame.shape
 
-# May need to change the w, h as letterbox function reshapes the image.
-#out = cv2.VideoWriter('./' + file_name + '_yolov7', 
-#                       cv2.VideoWriter_fourcc(*'mp4v'), 
-#                       fps, (w, h))
+if not ret:
+    print('Unable to read frame. Exiting ..')
+    exit()
 
-out = cv2.VideoWriter(f"{save_name}_yolo7.avi",cv2.VideoWriter_fourcc('M','J','P','G'), 10, w,h)
+# Get correct shape after letterbox resizing to prevent VideoWriter corruption
+test_img = letterbox(frame, input_size, stride=64, auto=True)[0]
+new_h, new_w, _ = test_img.shape
+
+# Fix VideoWriter undefined variables and correct the dimensions
+out = cv2.VideoWriter("yoga_yolov7.avi", cv2.VideoWriter_fourcc(*'MJPG'), fps, (new_w, new_h))
 
 #-------------------------------------------------------------------------------#
-
 
 if __name__ == '__main__':
     while True:
         ret, frame = cap.read()
         
         if not ret:
-            print('Unable to read frame. Exiting ..')
+            print('Finished processing. Exiting ..')
             break
 
         img, fps_ = pose_video(frame)
@@ -107,9 +101,10 @@ if __name__ == '__main__':
 
         cv2.imshow('Output', img[...,::-1])
         out.write(img[...,::-1])
+        
         key = cv2.waitKey(1)
         if key == ord('q'):
-        	break
+            break
 
     cap.release()
     out.release()
